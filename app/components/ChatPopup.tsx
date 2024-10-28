@@ -147,10 +147,9 @@ const ChatPopup: React.FC<ChatPopupProps> = ({ username }) => {
                           const match = /language-(\w+)/.exec(className || '');
                           return match ? (
                             <SyntaxHighlighter
-                              style={oneDark}
+                              style={oneDark as any}
                               language={match[1]}
                               PreTag="div"
-                              {...props}
                             >
                               {String(children).replace(/\n$/, '')}
                             </SyntaxHighlighter>
