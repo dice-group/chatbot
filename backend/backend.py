@@ -10,7 +10,7 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
-# Initialize OpenAI clients for chat and embeddings
+# Initialize OpenAI clients for chat 
 chat_client = OpenAI(
     base_url="http://tentris-ml.cs.upb.de:8501/v1", 
     api_key=os.getenv('OPENAI_API_KEY')
