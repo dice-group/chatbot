@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import remarkGfm from 'remark-gfm';
 
 interface Message {
-  role: 'system' | 'user' | 'assistant';
+  role: 'user' | 'assistant';
   content: string;
   id: string;
 }
@@ -25,9 +25,7 @@ const ChatPopup: React.FC<ChatPopupProps> = ({ username }) => {
   const [input, setInput] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [darkMode, setDarkMode] = useState<boolean>(false);
-  const [systemTheme, setSystemTheme] = useState<boolean>(true);
   const messageEndRef = useRef<HTMLDivElement>(null);
-  const [userData, setUserData] = useState<any>({});
   const inputRef = useRef<HTMLInputElement>(null);
   
   // Add state for window size and resizing
@@ -39,59 +37,6 @@ const ChatPopup: React.FC<ChatPopupProps> = ({ username }) => {
   const chatWindowRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
-  // Function to collect user data from the browser
-  const collectUserData = async () => {
-    const data: any = {
-      // Basic browser information
-      userAgent: navigator.userAgent,
-      language: navigator.language,
-      platform: navigator.platform,
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      
-      // Device information
-      deviceType: /Mobi|Android/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
-      screenSize: {
-        width: window.screen.width,
-        height: window.screen.height,
-        availWidth: window.screen.availWidth,
-        availHeight: window.screen.availHeight,
-      },
-      
-      // Connection information
-      connectionType: navigator.connection ? navigator.connection.effectiveType : 'unknown',
-      
-      // Browser capabilities
-      cookiesEnabled: navigator.cookieEnabled,
-      localStorage: typeof localStorage !== 'undefined',
-      sessionStorage: typeof sessionStorage !== 'undefined',
-      
-      // Accessibility preferences
-      prefersReducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-      highContrast: window.matchMedia('(prefers-contrast: more)').matches,
-      
-      // Time information
-      localTime: new Date().toLocaleTimeString(),
-      timezoneOffset: new Date().getTimezoneOffset(),
-    };
-    
-    // Only collect performance data if the API is available
-    if (window.performance) {
-      try {
-        const navigationTiming = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
-        if (navigationTiming) {
-          data.performance = {
-            loadTime: navigationTiming.loadEventEnd - navigationTiming.startTime,
-            domContentLoaded: navigationTiming.domContentLoadedEventEnd - navigationTiming.startTime,
-          };
-        }
-      } catch (e) {
-        console.error('Error collecting performance data:', e);
-      }
-    }
-    
-    setUserData(data);
-  };
-
   useEffect(() => {
     // Scroll to the bottom when a new message is added
     messageEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -102,27 +47,6 @@ const ChatPopup: React.FC<ChatPopupProps> = ({ username }) => {
     const timer = setTimeout(() => setIsOpen(true), 1000);
     return () => clearTimeout(timer);
   }, []);
-
-  useEffect(() => {
-    if (isOpen && messages.length === 0) {
-      // Collect user data
-      collectUserData();
-    }
-  }, [isOpen, messages.length]);
-
-  useEffect(() => {
-    if (Object.keys(userData).length > 0 && messages.length === 0) {
-      // Initialize the conversation with system context
-      const systemMessage: Message = {
-        role: 'system',
-        content: `You are chatting with a user named ${username}. Here is some additional user context: ${JSON.stringify(
-          userData
-        )}. Use this information to personalize your responses.`,
-        id: Date.now().toString(),
-      };
-      setMessages([systemMessage]);
-    }
-  }, [userData, messages.length, username]);
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -452,9 +376,7 @@ const ChatPopup: React.FC<ChatPopupProps> = ({ username }) => {
               }}
             >
               <AnimatePresence initial={false}>
-                {messages
-                  .filter((msg) => msg.role !== 'system')
-                  .map((msg) => (
+                {messages.map((msg) => (
                     <motion.div
                       key={msg.id}
                       initial={{ 
