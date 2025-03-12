@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { FiSend, FiX, FiMoon, FiSun, FiMessageSquare } from 'react-icons/fi';
+import { FiSend, FiX, FiMoon, FiSun, FiMessageSquare, FiMaximize, FiMinimize } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import remarkGfm from 'remark-gfm';
 
@@ -16,6 +16,9 @@ interface ChatPopupProps {
   username: string;
 }
 
+// Add ResizeDirection type
+type ResizeDirection = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw' | null;
+
 const ChatPopup: React.FC<ChatPopupProps> = ({ username }) => {
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -26,6 +29,15 @@ const ChatPopup: React.FC<ChatPopupProps> = ({ username }) => {
   const messageEndRef = useRef<HTMLDivElement>(null);
   const [userData, setUserData] = useState<any>({});
   const inputRef = useRef<HTMLInputElement>(null);
+  
+  // Add state for window size and resizing
+  const [windowSize, setWindowSize] = useState({ width: 35, height: 65 });
+  const [isResizing, setIsResizing] = useState<boolean>(false);
+  const [resizeDirection, setResizeDirection] = useState<ResizeDirection>(null);
+  const [initialPos, setInitialPos] = useState({ x: 0, y: 0 });
+  const [initialSize, setInitialSize] = useState({ width: 0, height: 0 });
+  const chatWindowRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
   // Function to collect user data from the browser
   const collectUserData = async () => {
@@ -151,6 +163,80 @@ const ChatPopup: React.FC<ChatPopupProps> = ({ username }) => {
     }
   };
 
+  // Add resize handlers
+  const handleResizeStart = (e: React.MouseEvent, direction: ResizeDirection) => {
+    e.preventDefault();
+    setIsResizing(true);
+    setResizeDirection(direction);
+    setInitialPos({ x: e.clientX, y: e.clientY });
+    setInitialSize({ width: windowSize.width, height: windowSize.height });
+  };
+
+  const handleResizeMove = (e: MouseEvent) => {
+    if (!isResizing || !resizeDirection) return;
+
+    const deltaX = e.clientX - initialPos.x;
+    const deltaY = e.clientY - initialPos.y;
+    
+    // Calculate new size based on resize direction
+    let newWidth = initialSize.width;
+    let newHeight = initialSize.height;
+    
+    // Handle horizontal resizing
+    if (resizeDirection.includes('e')) {
+      newWidth = Math.max(20, initialSize.width + (deltaX / window.innerWidth) * 100);
+    } else if (resizeDirection.includes('w')) {
+      newWidth = Math.max(20, initialSize.width - (deltaX / window.innerWidth) * 100);
+    }
+    
+    // Handle vertical resizing
+    if (resizeDirection.includes('s')) {
+      newHeight = Math.max(30, initialSize.height + (deltaY / window.innerHeight) * 100);
+    } else if (resizeDirection.includes('n')) {
+      newHeight = Math.max(30, initialSize.height - (deltaY / window.innerHeight) * 100);
+    }
+    
+    // Apply size constraints - ensure window stays within screen bounds with margins
+    const maxWidth = 95; // 95% of screen width
+    const maxHeight = 90; // 90% of screen height
+    
+    newWidth = Math.min(newWidth, maxWidth);
+    newHeight = Math.min(newHeight, maxHeight);
+    
+    // Update window size
+    setWindowSize({ width: newWidth, height: newHeight });
+  };
+
+  const handleResizeEnd = () => {
+    setIsResizing(false);
+    setResizeDirection(null);
+  };
+
+  // Add event listeners for resize
+  useEffect(() => {
+    if (isResizing) {
+      window.addEventListener('mousemove', handleResizeMove);
+      window.addEventListener('mouseup', handleResizeEnd);
+    }
+    
+    return () => {
+      window.removeEventListener('mousemove', handleResizeMove);
+      window.removeEventListener('mouseup', handleResizeEnd);
+    };
+  }, [isResizing, initialPos, initialSize, resizeDirection]);
+
+  // Toggle fullscreen mode
+  const toggleFullscreen = () => {
+    if (isFullscreen) {
+      // Return to previous size
+      setWindowSize({ width: 35, height: 65 });
+    } else {
+      // Go fullscreen (with small margins)
+      setWindowSize({ width: 95, height: 90 });
+    }
+    setIsFullscreen(!isFullscreen);
+  };
+
   return (
     <>
       <AnimatePresence mode="wait">
@@ -202,20 +288,72 @@ const ChatPopup: React.FC<ChatPopupProps> = ({ username }) => {
       <AnimatePresence mode="wait">
         {isOpen ? (
           <motion.div 
+            ref={chatWindowRef}
             key="chat-window"
             initial={{ opacity: 0, y: 50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 50, scale: 0.9 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className={`fixed bottom-5 right-5 w-[35vw] h-[65vh] min-w-[350px] min-h-[500px] 
+            className={`fixed bottom-5 right-5 min-w-[350px] min-h-[500px] 
               ${darkMode 
                 ? 'bg-gradient-to-br from-gray-900 to-gray-800 text-white' 
                 : 'bg-gradient-to-br from-emerald-50 to-white text-gray-800'} 
               border ${darkMode ? 'border-gray-700' : 'border-emerald-200'} 
               flex flex-col shadow-2xl rounded-2xl overflow-hidden transition-colors duration-200
               backdrop-filter backdrop-blur-sm ${darkMode ? 'bg-opacity-95' : 'bg-opacity-98'}`}
+            style={{
+              width: `${windowSize.width}vw`,
+              height: `${windowSize.height}vh`,
+              cursor: isResizing ? 
+                resizeDirection?.includes('n') && resizeDirection?.includes('e') ? 'ne-resize' :
+                resizeDirection?.includes('n') && resizeDirection?.includes('w') ? 'nw-resize' :
+                resizeDirection?.includes('s') && resizeDirection?.includes('e') ? 'se-resize' :
+                resizeDirection?.includes('s') && resizeDirection?.includes('w') ? 'sw-resize' :
+                resizeDirection?.includes('n') ? 'n-resize' :
+                resizeDirection?.includes('s') ? 's-resize' :
+                resizeDirection?.includes('e') ? 'e-resize' :
+                resizeDirection?.includes('w') ? 'w-resize' : 'default' : 'default'
+            }}
             layout
           >
+            {/* Add resize handles - only show when not in fullscreen mode */}
+            {!isFullscreen && (
+              <>
+                <div 
+                  className="absolute top-0 left-0 right-0 h-2 cursor-n-resize z-10" 
+                  onMouseDown={(e) => handleResizeStart(e, 'n')}
+                />
+                <div 
+                  className="absolute bottom-0 left-0 right-0 h-2 cursor-s-resize z-10" 
+                  onMouseDown={(e) => handleResizeStart(e, 's')}
+                />
+                <div 
+                  className="absolute top-0 bottom-0 left-0 w-2 cursor-w-resize z-10" 
+                  onMouseDown={(e) => handleResizeStart(e, 'w')}
+                />
+                <div 
+                  className="absolute top-0 bottom-0 right-0 w-2 cursor-e-resize z-10" 
+                  onMouseDown={(e) => handleResizeStart(e, 'e')}
+                />
+                <div 
+                  className="absolute top-0 left-0 w-6 h-6 cursor-nw-resize z-10" 
+                  onMouseDown={(e) => handleResizeStart(e, 'nw')}
+                />
+                <div 
+                  className="absolute top-0 right-0 w-6 h-6 cursor-ne-resize z-10" 
+                  onMouseDown={(e) => handleResizeStart(e, 'ne')}
+                />
+                <div 
+                  className="absolute bottom-0 left-0 w-6 h-6 cursor-sw-resize z-10" 
+                  onMouseDown={(e) => handleResizeStart(e, 'sw')}
+                />
+                <div 
+                  className="absolute bottom-0 right-0 w-6 h-6 cursor-se-resize z-10" 
+                  onMouseDown={(e) => handleResizeStart(e, 'se')}
+                />
+              </>
+            )}
+
             <motion.div 
               className={`flex justify-between items-center p-4 
                 ${darkMode 
@@ -272,6 +410,16 @@ const ChatPopup: React.FC<ChatPopupProps> = ({ username }) => {
                 </span>
               </h2>
               <div className="flex items-center space-x-2">
+                {/* Add fullscreen toggle button */}
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="p-1.5 rounded-full hover:bg-white hover:bg-opacity-20 transition-colors"
+                  onClick={toggleFullscreen}
+                  aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                >
+                  {isFullscreen ? <FiMinimize size={18} /> : <FiMaximize size={18} />}
+                </motion.button>
                 <motion.button
                   whileHover={{ scale: 1.1, rotate: 15 }}
                   whileTap={{ scale: 0.95 }}
