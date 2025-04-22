@@ -27,7 +27,9 @@
 2. Add your OpenAI API key to the `.env.local` file:
 
     ```
-    OPENAI_API_KEY=your_openai_api_key_here
+    API_KEY=""
+    URL=""
+    MODEL_NAME=""
     ```
 
 3. Run the backend server with the following command:
